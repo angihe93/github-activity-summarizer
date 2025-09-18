@@ -195,13 +195,14 @@ export default function GithubActivitySummary() {
 
   return (
     <div>
-      <h1 className="md:text-6xl text-4xl pb-5 font-medium opacity-0s">
+      <h1 className="md:text-6xl text-4xl pb-5 font-medium opacity-0s animate-in fade-in">
         <span className="text-brand-default"> GitHub Activity Summary </span>
       </h1>
-      <p className="mb-8">
+      <p className="mb-8 animate-in fade-in">
         Get the recent activitities of an organization on GitHub with a summary of their latest commits.
         Gain real-time insights into what the company is building.
       </p>
+
       <form onSubmit={handleResearch}>
         <input
           value={companyUrl}
@@ -211,7 +212,7 @@ export default function GithubActivitySummary() {
             setCompanyUrl(val);
           }}
           placeholder="Enter organization's GitHub URL (e.g., github.com/exa-labs or github.com/orgs/exa-labs)"
-          className="w-full bg-white p-3 border box-border outline-none border-2 border-[var(--brand-default)] resize-none opacity-0s"
+          className="w-full bg-white p-3 border box-border outline-none border-2 border-[var(--brand-default)] resize-none opacity-0s animate-in fade-in"
         />
         {showInvalid && (
           <div className="text-red-500 mt-2">
@@ -221,14 +222,25 @@ export default function GithubActivitySummary() {
         <button
           type="submit"
           disabled={isGenerating}
-          className="w-full mt-4 mb-6 text-white font-semibold px-2 py-2 min-h-[50px] bg-[var(--brand-default)] cursor-pointer"
+          className="w-full mt-4 mb-6 text-white font-semibold px-2 py-2 min-h-[50px] bg-[var(--brand-default)] cursor-pointer animate-in fade-in"
         >
           {isGenerating ? 'Summarizing...' : 'Summarize Now'}
         </button>
+        <div className="flex items-center justify-end gap-2 sm:gap-3 pt-4 opacity-0s animate-in fade-in">
+          <span className="text-gray-800">Powered by</span>
+          <a
+            href="https://exa.ai"
+            target="_blank"
+            rel="origin"
+            className="hover:opacity-80 transition-opacity"
+          >
+            <img src="/exa_logo.png" alt="Exa Logo" className="h-6 sm:h-7 object-contain" />
+          </a>
+        </div>
       </form>
 
       {status && (
-        <div className="mt-2">
+        <div className="mt-2 animate-in fade-in">
           {status}
         </div>
       )}
@@ -248,7 +260,7 @@ export default function GithubActivitySummary() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.5 }}
-              className="border shadow-sm p-4 px-6 my-2 h-70 bg-white overflow-y-auto"
+              className="border shadow-sm p-4 px-6 my-2 h-70 bg-white overflow-y-auto animate-in fade-in"
             >
               <div className="grid grid-cols-7 gap-6">
                 <div className="col-span-2 min-w-0 break-words">
@@ -293,18 +305,6 @@ export default function GithubActivitySummary() {
           ))
       )
       }
-      {/* <main className="row-start-2 flex flex-col items-center justify-center">
-        <div>
-          <span>Powered by</span>
-          {/* <a
-            href="https://exa.ai"
-            target="_blank"
-            rel="origin"
-          >
-            <img src="/exa_logo.png" alt="Exa Logo" />
-          </a> */}
-      {/* </div> */}
-
     </div >
   )
 }
