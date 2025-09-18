@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+#  GitHub Activity Summarizer
+### Powered by [Exa.ai](https://exa.ai) - The Search Engine for AI Applications
 
-## Getting Started
+<br>
 
-First, run the development server:
+## 🎯 What is GitHub Activity Summarizer?
 
+GitHub Activity Summarizer is a tool that helps you gain instant insights into what a company has been building. Just input the URL of a GitHub organization, and the tool live crawls the company's GitHub and summarizes the recently updated repos and commits for you, helping you cut through the noise and see the real progress in engineering -- so you can stay ahead of what matters most.
+
+Example result for github.com/openai:
+
+![Example screenshot](./public/openai-example.png)
+
+<br>
+
+## 📊 Data Sources & API Endpoints
+All data is fetched using Exa's powerful crawler. You can read more about the crawler API [here](https://docs.exa.ai/reference/get-contents), the TypeScript SDK [here](https://docs.exa.ai/sdks/typescript-sdk-specification#getcontents-method), and try it in the [playground](https://dashboard.exa.ai/playground/get-contents).
+
+It is possible to also get this data from the GitHub API and process it with LLM, but I wanted to explore Exa's live crawlers for this project. I am pretty impressed with the performance and ease of use!
+
+<br>
+
+## 💻 Tech Stack
+- **Crawling Engine**: [Exa.ai](https://exa.ai)
+- **Frontend**: [Next.js](https://nextjs.org/docs) with App Router, [TailwindCSS](https://tailwindcss.com), TypeScript
+- **Hosting**: [Vercel](https://vercel.com/)
+
+<br>
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js
+- Exa.ai API key
+
+### Installation
+
+1. Clone the repository
+```bash
+git clone https://github.com/angihe93/github-activity-summarizer
+cd github-activity-summarizer
+```
+
+2. Install dependencies
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Set up .env by adding EXA_API_KEY as in .env.example.
+* **Exa API Key**: Get from [Exa Dashboard](https://dashboard.exa.ai/api-keys)
+
+
+4. Run the development server
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Open http://localhost:3000 in your browser
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+<br>
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Future Work
+* Support processing of non-default branches of GitHub repos
+* Improve data reliability, quality, and scope
+* Allow customizations of activity time period, number of results to return, and other features
 
-## Learn More
+<br>
 
-To learn more about Next.js, take a look at the following resources:
+## ⭐ About [Exa.ai](https://exa.ai)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+This project is powered by [Exa.ai](https://exa.ai), a powerful search engine and web search API designed specifically for AI applications. Exa provides:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+* Advanced semantic search capabilities
+* Clean web content extraction
+* Real-time data retrieval
+* Comprehensive web search functionality
+* Superior search accuracy for AI applications
 
-## Deploy on Vercel
+[Try Exa search](https://exa.ai/search)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+<br>

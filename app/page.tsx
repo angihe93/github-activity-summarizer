@@ -1,4 +1,4 @@
-import GithubActivitySummary from "@/components/GithubActivitySummay";
+import GithubActivitySummary from "@/components/GithubActivitySummary";
 
 export default function Home() {
   return (

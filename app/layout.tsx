@@ -23,8 +23,8 @@ const reckless = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "GitHub Activity Summary",
-  description: "Gain insights into what the company is building with real-time GitHub activity data",
+  title: "GitHub Activity Summarizer",
+  description: "Gain insights into what a company has been building with real-time GitHub activity data",
 };
 
 export default function RootLayout({
