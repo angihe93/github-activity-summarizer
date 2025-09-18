@@ -71,22 +71,6 @@ export async function POST(req: NextRequest) {
     if (!commitsUrl) {
       return NextResponse.json({ error: 'Github repo commits URL is required' }, { status: 400 });
     }
-
-    // const result = await exa.getContents([commitsUrl], {
-    //   type: "auto",
-    //   livecrawl: "always",
-    //   livecrawlTimeout: 10000,
-    //   summary: {
-    //     query: `summarize the recent commits (within last 30 days, ignore those older than 30 days) to this repo ${commitsUrl}`,
-    //   },
-    // });
-    // let resultJson;
-    // try {
-    //   resultJson = JSON.parse(result.results?.[0]?.summary || '{}');
-    // } catch {
-    //   resultJson = { summary: result.results?.[0]?.summary || '' };
-    // }
-
     let attempts = 0;
     let validation = ZRecentCommitsResponse.safeParse(null);
     let resultJson;
@@ -125,7 +109,6 @@ export async function POST(req: NextRequest) {
       };
       console.log('get-recent-commits no schema result JSON:', resultJson);
       return NextResponse.json({ result: resultJson });
-      // return NextResponse.json({ error: "Invalid response format", response: resultJson, details: validation.error }, { status: 500 });
     }
     return NextResponse.json({ result: resultJson });
   } catch (error) {
