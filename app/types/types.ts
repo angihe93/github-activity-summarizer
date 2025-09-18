@@ -10,7 +10,7 @@ export const ZRepository = z.object({
     language: z.string().optional()
 });
 
-export const ZFindRecentReposResponse = z.object({
+export const ZRecentReposResponse = z.object({
     repositories: z.array(ZRepository)
 });
 
@@ -22,7 +22,7 @@ export const ZCommit = z.object({
     message: z.string(),
 });
 
-export const ZGetRecentCommitsResponse = z.object({
+export const ZRecentCommitsResponse = z.object({
     summary: z.string(),
     repository: z.object({
         name: z.string(),
@@ -31,6 +31,14 @@ export const ZGetRecentCommitsResponse = z.object({
     commits: z.array(ZCommit)
 });
 
+export const ZDefaultBranchResponse = z.object({
+    repositoryName: z.string(),
+    owner: z.string(),
+    defaultBranch: z.string()
+})
+
 export type Repository = z.infer<typeof ZRepository>;
-export type FindRecentReposResponse = z.infer<typeof ZFindRecentReposResponse>;
-export type GetRecentCommitsResponse = z.infer<typeof ZGetRecentCommitsResponse>;
+export type Commit = z.infer<typeof ZCommit>;
+export type RecentReposResponse = z.infer<typeof ZRecentReposResponse>;
+export type RecentCommitsResponse = z.infer<typeof ZRecentCommitsResponse>;
+export type DefaultBranchResponse = z.infer<typeof ZDefaultBranchResponse>;

@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Exa from "exa-js";
-import { ZFindRecentReposResponse } from '@/app/types/types';
+import { ZRecentReposResponse } from '@/app/types/types';
 
 const exa = new Exa(process.env.EXA_API_KEY);
 
 const summaryOutputSchema = {
-  description: "Schema describing recently updated repositories",
+  description: "Schema describing recently updated repositories (updated within last 30 days)",
   type: "object",
   properties: {
     repositories: {
       type: "array",
-      description: "List of recently updated repositories",
+      description: "List of recently updated repositories (updated within last 30 days)",
       items: {
         type: "object",
         properties: {
@@ -63,14 +63,14 @@ export async function POST(req: NextRequest) {
     const result = await exa.getContents([repoUrl], {
       type: "auto",
       livecrawl: "always",
-      livecrawlTimeout: 10000,
+      livecrawlTimeout: 20000,
       summary: {
-        query: `summarize the recently updated repos (within last week and this week) at ${repoUrl}`,
+        query: `get all the recently updated repos (within last 30 days) at ${repoUrl}`,
         schema: summaryOutputSchema
       }
     });
     const resultJson = JSON.parse(result.results?.[0]?.summary || '{}');
-    const validation = ZFindRecentReposResponse.safeParse(resultJson);
+    const validation = ZRecentReposResponse.safeParse(resultJson);
     if (!validation.success) {
       return NextResponse.json({ error: "Invalid response format", details: validation.error }, { status: 500 });
     }

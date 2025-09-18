@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Exa from "exa-js";
-import { ZGetRecentCommitsResponse } from '@/app/types/types';
+import { ZRecentCommitsResponse } from '@/app/types/types';
 
 const exa = new Exa(process.env.EXA_API_KEY);
 
@@ -10,7 +10,7 @@ const summaryOutputSchema = {
   properties: {
     summary: {
       type: "string",
-      description: "summary of most recent commits"
+      description: "summary of most recent commits, feel free to elaborate on the bigger picture beyond just listing the individual commit messages"
     },
     repository: {
       type: "object",
@@ -18,7 +18,7 @@ const summaryOutputSchema = {
       properties: {
         name: {
           type: "string",
-          description: "Name of the repository"
+          description: "Name of the repository, do not include the owner/org name, only a single string for the repo name"
         },
         url: {
           type: "string",
@@ -67,24 +67,32 @@ const summaryOutputSchema = {
 export async function POST(req: NextRequest) {
   try {
     // example url format: https://github.com/openai/codex
-    const { repoUrl } = await req.json();
-    if (!repoUrl) {
-      return NextResponse.json({ error: 'Github repo URL is required' }, { status: 400 });
+    const { commitsUrl } = await req.json();
+    if (!commitsUrl) {
+      return NextResponse.json({ error: 'Github repo commits URL is required' }, { status: 400 });
     }
-    const commitsUrl = `${repoUrl}/commits/main/`;
-    const result = await exa.getContents([commitsUrl], {
-      type: "auto",
-      livecrawl: "always",
-      livecrawlTimeout: 10000,
-      summary: {
-        query: `summarize the recent commits to this repo ${commitsUrl}`,
-        schema: summaryOutputSchema
-      },
-    });
-    const resultJson = JSON.parse(result.results?.[0]?.summary || '{}');
-    const validation = ZGetRecentCommitsResponse.safeParse(resultJson);
+    let attempts = 0;
+    let validation = ZRecentCommitsResponse.safeParse(null);
+    let resultJson;
+    while (attempts < 3) {
+      const result = await exa.getContents([commitsUrl], {
+        type: "auto",
+        livecrawl: "always",
+        livecrawlTimeout: 10000,
+        summary: {
+          query: `summarize the recent commits (within last 30 days, ignore those older than 30 days) to this repo ${commitsUrl}`,
+          schema: summaryOutputSchema
+        },
+      });
+      resultJson = JSON.parse(result.results?.[0]?.summary || '{}');
+      console.log('get-recent-commits result JSON:', resultJson);
+      validation = ZRecentCommitsResponse.safeParse(resultJson);
+      if (validation.success) break;
+      attempts++;
+      console.log(`Retrying get-recent-commits for ${commitsUrl} attempt ${attempts + 1}`);
+    }
     if (!validation.success) {
-      return NextResponse.json({ error: "Invalid response format", details: validation.error }, { status: 500 });
+      return NextResponse.json({ error: "Invalid response format", response: resultJson, details: validation.error }, { status: 500 });
     }
     return NextResponse.json({ result: resultJson });
   } catch (error) {
