@@ -10,7 +10,7 @@ const summaryOutputSchema = {
   properties: {
     repositoryName: {
       type: "string",
-      description: "Name of the repository"
+      description: "Name of the repository, do not include the owner/org name, only a single string for the repo name"
     },
     defaultBranch: {
       type: "string",

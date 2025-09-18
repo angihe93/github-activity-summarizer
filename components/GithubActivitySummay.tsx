@@ -1,13 +1,15 @@
 "use client";
 
 import { DefaultBranchResponse, RecentCommitsResponse, RecentReposResponse, Repository, Commit } from "@/app/types/types";
-import React from "react";
+import React, { useEffect } from "react";
+import { motion } from "framer-motion";
+
+type RepositoryWithCommitsUrl = Repository & { commitsUrl?: string };
 
 type CommitsWithSummary = { commits: Commit[], summary: string };
 
-
 type RepoCommits = {
-  [repoName: string]: { repo: Repository; commitsWithSummary: CommitsWithSummary }
+  [repoName: string]: { repo: RepositoryWithCommitsUrl; commitsWithSummary: CommitsWithSummary }
 }
 
 export default function GithubActivitySummary() {
@@ -16,26 +18,22 @@ export default function GithubActivitySummary() {
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [showInvalid, setShowInvalid] = React.useState(false);
   const [recentRepos, setRecentRepos] = React.useState<Repository[] | null>(null);
-  const [recentCommits, setRecentCommits] = React.useState<RecentCommitsResponse[] | null>(null);
+  const [totalReposCount, setTotalReposCount] = React.useState<number | null>(null);
   const [repoCommits, setRepoCommits] = React.useState<RepoCommits | null>(null);
+  const [status, setStatus] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
 
   const isValidUrl = (url: string): boolean => {
-    try {
-      url = url.trim();
-      if (!url.includes('.')) {
-        return false;
-      }
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        url = 'https://' + url;
-      }
-      const urlObj = new URL(url);
-      return urlObj.hostname.includes('.') && !urlObj.hostname.includes(' ');
-    } catch {
-      return false;
-    }
+    url = url.trim();
+    const regex = /^(https?:\/\/)?github\.com\/(orgs\/)?[a-zA-Z0-9-]+$/;
+    return regex.test(url);
   };
 
   const normalizeGithubOrgUrl = (url: string): string => {
+    url = url.trim();
+    if (!url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
     if (url.includes('/orgs/')) {
       return url;
     }
@@ -55,7 +53,8 @@ export default function GithubActivitySummary() {
       body: JSON.stringify({ githubOrgUrl })
     });
     if (!response.ok) {
-      throw new Error(`Error fetching recent repos: ${response.statusText}`);
+      setError(`Unable to get recent repos for ${companyUrl}, please check the URL is correct and try again.`);
+      return { result: { repositories: [] } };
     }
     return response.json();
   }
@@ -98,49 +97,97 @@ export default function GithubActivitySummary() {
     setShowInvalid(false);
     setIsGenerating(true);
     const normalizedUrl = normalizeGithubOrgUrl(companyUrl);
+    console.log('Normalized URL:', normalizedUrl);
     try {
       const reposResponse = await findRecentRepos(normalizedUrl);
+      if (reposResponse.result.repositories.length === 0) {
+        return;
+      }
       console.log('Recent Repos Response:', reposResponse);
-      // only setrecentrepos if url is valid
       const validRepoUrlRegex = /^https:\/\/github\.com\/[^\/]+\/[^\/]+$/;
-      const validRepos: Repository[] = reposResponse.result.repositories.filter(repo => validRepoUrlRegex.test(repo.url));
+      const validRepos: RepositoryWithCommitsUrl[] = reposResponse.result.repositories.filter(repo => validRepoUrlRegex.test(repo.url));
       setRecentRepos(validRepos);
 
       const defaultBranchPromises = validRepos.map(repo => getDefaultBranch(repo.url));
-      const defaultBranchResponses = await Promise.all(defaultBranchPromises);
+      const defaultBranchResponses = await Promise.allSettled(defaultBranchPromises);
+      const successfulDefaultBranches = defaultBranchResponses
+        .filter((r): r is PromiseFulfilledResult<{ result: DefaultBranchResponse }> => r.status === 'fulfilled')
+        .map(r => r.value);
+      console.log('Successful Default Branch Responses:', successfulDefaultBranches);
       // console.log('Default Branch Responses:', defaultBranchResponses);
-      const repoCommitsLinks = defaultBranchResponses.map((res, idx) => {
+      const repoCommitsLinks = successfulDefaultBranches.map((res, idx) => {
         return `${validRepos[idx].url}/commits/${res.result.defaultBranch}`;
       });
-      console.log('Repo Commits Links:', repoCommitsLinks);
-
-      const commitsPromises = repoCommitsLinks.map(url => getRecentCommits(url));
-      // these might fail due to schema validation failure, so get successful ones only
-      const commitsResults = await Promise.allSettled(commitsPromises);
-      const successfulCommits = commitsResults
-        .filter((r): r is PromiseFulfilledResult<{ result: RecentCommitsResponse }> => r.status === 'fulfilled')
-        .map(r => r.value.result);
-      console.log('Successful Commits Responses:', successfulCommits);
-
-      const repoCommitsMap: RepoCommits = {};
-      successfulCommits.forEach(commitRes => {
-        repoCommitsMap[commitRes.repository.name] = { repo: validRepos.find(r => r.name === commitRes.repository.name)!, commitsWithSummary: { commits: commitRes.commits, summary: commitRes.summary } };
+      successfulDefaultBranches.forEach(branchRes => {
+        const repo = validRepos.find(r => r.name === branchRes.result.repositoryName);
+        if (repo) {
+          repo.commitsUrl = `${repo.url}/commits/${branchRes.result.defaultBranch}`;
+        }
       });
-      const validSuccessfulRepos = reposResponse.result.repositories.filter(repo =>
-        successfulCommits.some(commitRes => commitRes.repository.name === repo.name)
-      );
-      // setRecentRepos(validSuccessfulRepos);
-      // setRecentCommits(successfulCommits);
-      setRepoCommits(repoCommitsMap);
+      setStatus(`Fetching and summarizing commits for ${repoCommitsLinks.length} recent repositories...`);
+      setTotalReposCount(repoCommitsLinks.length);
+      console.log('Repo Commits Links:', repoCommitsLinks);
+      console.log('Valid Repos with Commits URL:', validRepos);
 
+      const commitPromises = repoCommitsLinks.map(async (url) => {
+        try {
+          const commitsRes = await getRecentCommits(url);
+          const repo = validRepos.find(r => r.name === commitsRes.result.repository.name)
+          if (repo) {
+            setRepoCommits(prev => ({
+              ...prev,
+              [repo.name]: {
+                repo,
+                commitsWithSummary: {
+                  commits: commitsRes.result.commits ?? [],
+                  summary: commitsRes.result.summary
+                }
+              }
+            }));
+          }
+        } catch (error) {
+          console.log(`Failed to get commits for ${url}:`, error);
+        }
+      });
+      await Promise.allSettled(commitPromises);
 
     } catch (error) {
       console.error('Error during research:', error);
     }
     finally {
       setIsGenerating(false);
+      console.log("final repoCommits:", repoCommits);
     }
   }
+
+  useEffect(() => {
+    if (!recentRepos || !repoCommits || !totalReposCount) return;
+    const newReposOrder = recentRepos.slice().sort((a, b) => {
+      const aHasCommits = repoCommits && repoCommits[a.name] && repoCommits[a.name].commitsWithSummary.commits.length > 0 ? 0 : 2;
+      const bHasCommits = repoCommits && repoCommits[b.name] && repoCommits[b.name].commitsWithSummary.commits.length > 0 ? 0 : 2;
+      let aScore = aHasCommits;
+      let bScore = bHasCommits;
+      if (aHasCommits === 2) {
+        if (repoCommits && repoCommits[a.name] && repoCommits[a.name].commitsWithSummary.summary.length > 0 && !repoCommits[a.name].commitsWithSummary.summary.toLowerCase().startsWith('no'))
+          aScore = 1;
+      }
+      if (bHasCommits === 2) {
+        if (repoCommits && repoCommits[b.name] && repoCommits[b.name].commitsWithSummary.summary.length > 0 && !repoCommits[b.name].commitsWithSummary.summary.toLowerCase().startsWith('no'))
+          bScore = 1;
+      }
+      return aScore - bScore;
+    })
+    setRecentRepos(newReposOrder);
+    const summarizedCount = Object.keys(repoCommits).length;
+    setStatus(summarizedCount < totalReposCount && isGenerating
+      ? `Summarized commits for ${summarizedCount}/${totalReposCount} repositories. ${totalReposCount - summarizedCount} remaining...`
+      : `Summarized commits for ${summarizedCount} repositories.`);
+  }, [repoCommits]);
+
+  useEffect(() => {
+    console.log('recentRepos updated:', recentRepos);
+    console.log('repoCommits state:', repoCommits);
+  }, [recentRepos])
 
   return (
     <div>
@@ -154,15 +201,16 @@ export default function GithubActivitySummary() {
           value={companyUrl}
           onChange={(e) => {
             const val = e.target.value;
+            setError(null);
             setCompanyUrl(val);
             setShowInvalid(val.length > 0 && !isValidUrl(val));
           }}
-          placeholder="Enter organization's GitHub URL (e.g., https://github.com/exa-labs or https://github.com/orgs/exa-labs)"
+          placeholder="Enter organization's GitHub URL (e.g., github.com/exa-labs or github.com/orgs/exa-labs)"
           className="w-full"
         />
         {showInvalid && (
           <div className="text-red-500 mt-2">
-            Please enter a valid GitHub organization URL
+            Please enter a valid GitHub organization URL, e.g., github.com/exa-labs or github.com/orgs/exa-labs
           </div>
         )}
         <button
@@ -171,69 +219,66 @@ export default function GithubActivitySummary() {
         >
           {isGenerating ? 'Summarizing...' : 'Summarize Now'}
         </button>
-        {recentRepos && recentRepos.length > 0 && (
-          recentRepos
-            .slice()
-            .sort((a, b) => {
-              const aHasCommits = repoCommits && repoCommits[a.name] ? 0 : 1;
-              const bHasCommits = repoCommits && repoCommits[b.name] ? 0 : 1;
-              return aHasCommits - bHasCommits;
-            })
-            .map(repo => (
-              <div key={repo.name} className="border p-4 px-6 my-2 h-70 overflow-y-auto">
-                <div className="flex space-x-4">
-                  <div className="min-w-[300px] max-w-[300px]">
-                    <a href={repo.url} target="_blank" rel="noopener noreferrer" className="text-xl font-bold text-blue-600">{repo.name}</a>
-                    <p>{repo.description}</p>
-                    <p>Last Updated: {new Date(repo.lastUpdated).toLocaleDateString()}</p>
-                    <p>Stars: {repo.stars || 0} | Language: {repo.language || 'N/A'}</p>
-                  </div>
-                  <div>
-                    {repoCommits && repoCommits[repo.name] ?
-                      (
-                        //     <div key={repo.name} className="border p-4 my-2">
-                        // <a href={repo.url} target="_blank" rel="noopener noreferrer" className="text-xl font-bold text-blue-600">{repo.name}</a>
-                        // <p>{repo.description}</p>
-                        // <p>Last Updated: {new Date(repo.lastUpdated).toLocaleDateString()}</p>
-                        // <p>Stars: {repo.stars || 0} | Language: {repo.language || 'N/A'}</p>
-                        <div className="mt-2">
-                          <h3 className="font-semibold">Recent Commits:</h3>
-                          <p>{repoCommits[repo.name].commitsWithSummary.summary}</p>
-                          {repoCommits[repo.name].commitsWithSummary.commits.map(commit => (
-                            <div key={commit.id} className="border-t mt-2 pt-2">
-                              <a href={commit.url} target="_blank" rel="noopener noreferrer" className="text-blue-600">{commit.message}</a>
-                              <p>Author: {commit.author} | Date: {new Date(commit.date).toLocaleString()}</p>
-                            </div>
-                          ))}
-                        </div>
-                        // </div>
-                      )
-                      : (<div>failed to get commits details</div>)}
-                  </div>
+      </form>
+
+      {status && (
+        <div className="mt-2">
+          {status}
+        </div>
+      )}
+
+      {error && (
+        <div className="text-red-500 mt-2">
+          {error}
+        </div>
+      )}
+
+      {recentRepos && recentRepos.length > 0 && (
+        recentRepos
+          .map(repo => (
+            <motion.div
+              key={repo.name}
+              layout
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.5 }}
+              className="border p-4 px-6 my-2 h-70 bg-white overflow-y-auto"
+            >
+              <div className="flex space-x-4">
+                <div className="min-w-[300px] max-w-[300px]">
+                  <a href={repo.url} target="_blank" rel="noopener noreferrer" className="text-xl font-bold text-blue-600">{repo.name}</a>
+                  <p>{repo.description}</p>
+                  <p>Last Updated: {new Date(repo.lastUpdated).toLocaleDateString()}</p>
+                  <p>Stars: {repo.stars || 0} | Language: {repo.language || 'N/A'}</p>
                 </div>
-              </div>))
-        )}
-        {/* {repoCommits && Object.keys(repoCommits).length > 0 && (
-          Object.entries(repoCommits).map(([repoName, { repo, commitsWithSummary }]) => (
-            <div key={repoName} className="border p-4 my-2">
-              <a href={repo.url} target="_blank" rel="noopener noreferrer" className="text-xl font-bold text-blue-600">{repo.name}</a>
-              <p>{repo.description}</p>
-              <p>Last Updated: {new Date(repo.lastUpdated).toLocaleDateString()}</p>
-              <p>Stars: {repo.stars || 0} | Language: {repo.language || 'N/A'}</p>
-              <div className="mt-2">
-                <h3 className="font-semibold">Recent Commits:</h3>
-                <p>{commitsWithSummary.summary}</p>
-                {commitsWithSummary.commits.map(commit => (
-                  <div key={commit.id} className="border-t mt-2 pt-2">
-                    <a href={commit.url} target="_blank" rel="noopener noreferrer" className="text-blue-600">{commit.message}</a>
-                    <p>Author: {commit.author} | Date: {new Date(commit.date).toLocaleString()}</p>
-                  </div>
-                ))}
+                <div>
+                  {repoCommits && repoCommits[repo.name] ?
+                    (
+                      <div className="mt-2">
+                        <h3 className="font-semibold">Recent Commits:</h3>
+                        <p>{repoCommits[repo.name].commitsWithSummary.summary}</p>
+                        {repoCommits[repo.name].commitsWithSummary.commits.map(commit => (
+                          <div key={commit.id} className="border-t mt-2 pt-2">
+                            <a href={commit.url} target="_blank" rel="noopener noreferrer" className="text-blue-600">{commit.message}</a>
+                            <p>Author: {commit.author} | Date: {new Date(commit.date).toLocaleString()}</p>
+                          </div>
+                        ))}
+                        {repoCommits[repo.name].commitsWithSummary.commits.length === 0 && repoCommits[repo.name].repo.commitsUrl && (
+                          <div className="mt-2">
+                            <a href={repoCommits[repo.name].repo.commitsUrl} className="text-blue-600">View commits here</a>
+                          </div>
+                        )}
+                      </div>
+                    )
+                    // : <div>Loading...</div>}
+                    : (isGenerating ? <div>Loading...</div> : <div>failed to get commits details</div>)}
+                </div>
               </div>
-            </div>
+            </motion.div>
           ))
-        )} */}
-        {/* <main className="row-start-2 flex flex-col items-center justify-center">
+      )}
+      {/* <main className="row-start-2 flex flex-col items-center justify-center">
         <div>
           <span>Powered by</span>
           {/* <a
@@ -243,8 +288,8 @@ export default function GithubActivitySummary() {
           >
             <img src="/exa_logo.png" alt="Exa Logo" />
           </a> */}
-        {/* </div> */}
-      </form>
+      {/* </div> */}
+
     </div>
   )
 }

@@ -7,7 +7,7 @@ export const ZRepository = z.object({
     description: z.string().optional(),
     url: z.string().url(),
     stars: z.number().int().optional(),
-    language: z.string().optional()
+    language: z.string().optional(),
 });
 
 export const ZRecentReposResponse = z.object({
@@ -28,7 +28,7 @@ export const ZRecentCommitsResponse = z.object({
         name: z.string(),
         url: z.string().url()
     }),
-    commits: z.array(ZCommit)
+    commits: z.array(ZCommit).optional()
 });
 
 export const ZDefaultBranchResponse = z.object({
