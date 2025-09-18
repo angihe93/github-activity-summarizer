@@ -199,7 +199,7 @@ export default function GithubActivitySummary() {
         <span className="text-brand-default"> GitHub Activity Summary </span>
       </h1>
       <p className="mb-8 animate-in fade-in">
-        Get the recent activitities of an organization on GitHub with a summary of their latest commits.
+        Get recent activitities of an organization on GitHub with a summary of their latest commits.
         Gain real-time insights into what the company is building.
       </p>
 
